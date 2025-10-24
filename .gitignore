@@ -1,0 +1,15 @@
+# Python venv 폴더 제외
+venv/
+
+# 환경 설정 파일 제외
+.env
+
+# VSCode 설정 파일
+.vscode/
+
+# node_modules 폴더 (리액트/노드용)
+node_modules/
+
+# 캐시/로그 등 불필요한 파일
+__pycache__/
+*.log
