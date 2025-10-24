@@ -1,9 +1,6 @@
 # Python venv 폴더 제외
 venv/
 
-# 환경 설정 파일 제외
-.env
-
 # VSCode 설정 파일
 .vscode/
 
