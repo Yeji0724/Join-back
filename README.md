@@ -4,6 +4,8 @@ venv\scripts\activate]
 
 pip install uvicorn 
 
+python -m uvicorn app.main:app --reload
+
 
 .env 폴더에 테스트로 제 계정 넣어놔서 수정해야함.
 
