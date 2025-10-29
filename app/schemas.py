@@ -5,6 +5,7 @@ class UserRegister(BaseModel):
     user_login_id: str
     email: EmailStr
     password: str
+    folder_name: str | None = "unknown" 
 
     #  아이디 제약: 영문 + 숫자 포함, 8~20자
     @field_validator("user_login_id")
@@ -28,7 +29,12 @@ class UserRegister(BaseModel):
             raise ValueError("비밀번호에는 숫자가 포함되어야 합니다.")
         return v
 
-
+# 로그인
 class UserLogin(BaseModel):
     user_login_id: str
     password: str
+
+# 폴더 생성
+class FolderCreate(BaseModel):
+    user_id: int
+    folder_name: str

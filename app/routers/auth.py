@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import date
 from app.database import get_db
-from app.models import User
+from app.models import User, Folder
 from app.utils.security import hash_password, verify_password, create_access_token
 from app.schemas import UserRegister, UserLogin 
 
@@ -24,10 +24,23 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
         created_at=date.today()
     )
     db.add(new_user)
+    db.flush()          # USER_ID 확보
+
+    # 폴더 생성
+    folder_name = (user.folder_name or "unknown").strip()
+    new_folder = Folder(
+        user_id = new_user.user_id,
+        folder_name = folder_name,
+        file_cnt = 0,
+        classification_after_change = 0
+    )
+
+    db.add(new_folder)
     db.commit()
     db.refresh(new_user)
-    return {"message": "회원가입 성공", "user_id": new_user.user_id}
-
+    return {"message": "회원가입 성공", 
+            "user_id": new_user.user_id,
+            "folder_name": folder_name}
 
 # 로그인
 @router.post("/login")
@@ -43,5 +56,5 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     db_user.access_key = token
     db.commit()
     print("로그인 성공:", db_user.user_login_id)
-    return {"message": "로그인 성공", "token": token}
+    return {"message": "로그인 성공", "token": token, "user_id": db_user.user_id}
 
