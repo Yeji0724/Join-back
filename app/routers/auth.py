@@ -20,7 +20,7 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
     new_user = User(
         user_login_id=user.user_login_id,
         email=user.email,
-        password_hash=hashed_pw,
+        user_password=hashed_pw,
         created_at=date.today()
     )
     db.add(new_user)
@@ -45,10 +45,10 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
 # 로그인
 @router.post("/login")
 def login_user(user: UserLogin, db: Session = Depends(get_db)):
-    print(" 로그인 요청 body:", user.dict())  # 👈 추가
+    print(" 로그인 요청 body:", user.dict())  
     db_user = db.query(User).filter(User.user_login_id == user.user_login_id).first()
 
-    if not db_user or not verify_password(user.password, db_user.password_hash):
+    if not db_user or not verify_password(user.password, db_user.user_password):
         print("로그인 실패: 유저 없음 or 비밀번호 불일치")
         raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
 

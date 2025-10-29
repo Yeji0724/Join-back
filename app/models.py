@@ -21,9 +21,8 @@ class User(Base):
     email = Column("EMAIL", String(100),
                    unique=True, nullable=False)
 
-    # 비밀번호 해시값
-    password_hash = Column("PASSWORD_HASH", String(200),
-                           nullable=False)
+    # 비밀번호
+    user_password = Column("USER_PASSWORD", String(200), nullable=False)
 
     # API 토큰
     access_key = Column("ACCESS_KEY", String(100))
