@@ -4,10 +4,10 @@ venv\scripts\activate
 
 pip install uvicorn 
 
-# 로그인/회원가입
+- 로그인/회원가입
 uvicorn app.main:app --reload --port=8004
 
-# 폴더 불러오기 생성,삭제,수정
+- 폴더 불러오기 생성,삭제,수정
 uvicorn app.main:app --reload --port=8000
 
 
