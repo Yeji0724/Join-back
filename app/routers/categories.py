@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import FoldersCategory
+from datetime import datetime
+from app.models import FoldersCategory, Folder
 from pydantic import BaseModel
+from app.models import File as FileModel
 
 router = APIRouter(prefix="/folders", tags=["Categories"])
 
@@ -35,8 +37,12 @@ def create_category(folder_id: int, cat: CategoryCreate, db: Session = Depends(g
 
     new_cat = FoldersCategory(folder_id=folder_id, category_name=cat.category_name)
     db.add(new_cat)
-    db.commit()
 
+    folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    if folder:
+        folder.last_work = datetime.utcnow()
+
+    db.commit()
     return {"message": "카테고리 생성 완료"}
 
 
@@ -45,7 +51,7 @@ class CategoryRename(BaseModel):
 
 
 # 카테고리 이름 수정
-@router.put("/{folder_id}/category/{old_name}")
+@router.put("/{folder_id}/categories/{old_name}")
 def rename_category(folder_id: int, old_name: str, body: CategoryRename, db: Session = Depends(get_db)):
     cat = db.query(FoldersCategory).filter(
         FoldersCategory.folder_id == folder_id,
@@ -56,13 +62,17 @@ def rename_category(folder_id: int, old_name: str, body: CategoryRename, db: Ses
         raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없습니다.")
 
     cat.category_name = body.new_name
-    db.commit()
 
+    folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    if folder:
+        folder.last_work = datetime.utcnow()
+
+    db.commit()
     return {"message": "카테고리 이름 수정 완료"}
 
 
 # 카테고리 삭제
-@router.delete("/{folder_id}/category/{cat_name}")
+@router.delete("/{folder_id}/categories/{cat_name}")
 def delete_category(folder_id: int, cat_name: str, db: Session = Depends(get_db)):
     cat = db.query(FoldersCategory).filter(
         FoldersCategory.folder_id == folder_id,
@@ -73,6 +83,53 @@ def delete_category(folder_id: int, cat_name: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없습니다.")
 
     db.delete(cat)
-    db.commit()
 
+    folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    if folder:
+        folder.last_work = datetime.utcnow()
+
+    db.commit()
     return {"message": "카테고리 삭제 완료"}
+
+
+# 카테고리별 파일 목록 조회
+@router.get("/{folder_id}/categories/{category_name}/files")
+def get_files_by_category(folder_id: int, category_name: str, db: Session = Depends(get_db)):
+    """
+    특정 폴더 내의 특정 카테고리에 속한 파일 목록을 반환
+    """
+    # 카테고리 유효성 확인
+    category = db.query(FoldersCategory).filter(
+        FoldersCategory.folder_id == folder_id,
+        FoldersCategory.category_name == category_name
+    ).first()
+
+    if not category:
+        raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없습니다.")
+
+    # 해당 카테고리의 파일 목록 조회
+    files = (
+        db.query(FileModel)
+        .filter(FileModel.folder_id == folder_id)
+        .filter(FileModel.category == category_name)
+        .order_by(FileModel.uploaded_at.desc().nullslast())
+        .all()
+    )
+
+    result = [
+        {
+            "file_id": f.file_id,
+            "file_name": f.file_name,
+            "file_type": f.file_type,
+            "is_transform": f.is_transform,
+            "is_classification": f.is_classification,
+            "uploaded_at": f.uploaded_at
+        }
+        for f in files
+    ]
+
+    return {
+        "category_name": category_name,
+        "file_count": len(result),
+        "files": result
+    }

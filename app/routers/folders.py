@@ -25,7 +25,7 @@ def get_user_folders(user_id: int, db: Session = Depends(get_db)):
             "user_id": f.user_id,
             "folder_name": f.folder_name,
             "file_cnt": f.file_cnt,
-            "last_work": f.last_work
+            "last_work": f.last_work.isoformat() if f.last_work else None
         }
         for f in folders
     ]
@@ -44,7 +44,7 @@ def create_folder(folder: FolderCreate, db: Session = Depends(get_db)):
         folder_name=folder.folder_name.strip(),
         file_cnt=0,
         classification_after_change=0,
-        last_work=datetime.now()
+        last_work=datetime.utcnow()
     )
 
     db.add(new_folder)
@@ -70,7 +70,7 @@ def rename_folder(folder_id: int, renameData: FolderRename, db: Session = Depend
         raise HTTPException(status_code=400, detail="폴더 이름은 공백일 수 없습니다.")
 
     folder.folder_name = renameData.new_name.strip()
-    folder.last_work = datetime.now()
+    folder.last_work = datetime.utcnow()
 
     db.commit()
     db.refresh(folder)  # 인자 추가

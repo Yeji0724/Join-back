@@ -101,4 +101,4 @@ class FoldersCategory(Base):
     category_name = Column(String(200), primary_key=True)
 
     # 관계 (선택적)
-    folder = relationship("Folder", back_populates="categories", cascade="all, delete")
+    folder = relationship("Folder", back_populates="categories")
