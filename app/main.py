@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
-from app.routers import auth, folders, categories
+from app.routers import auth, folders, categories, files
 
 #  1. FastAPI 앱 생성
 app = FastAPI()
@@ -22,6 +22,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(auth.router)
 app.include_router(folders.router)
 app.include_router(categories.router)
+app.include_router(files.router)
 
 #  5. 테스트용 루트 엔드포인트
 @app.get("/")
