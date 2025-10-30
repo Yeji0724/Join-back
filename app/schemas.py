@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 class UserRegister(BaseModel):
     user_login_id: str
     email: EmailStr
-    password: str
+    user_password: str
     folder_name: str | None = "unknown" 
 
     #  아이디 제약: 영문 + 숫자 포함, 8~20자
@@ -19,7 +19,7 @@ class UserRegister(BaseModel):
         return v
 
     #  비밀번호 제약: 영문 + 숫자 포함, 8~20자
-    @field_validator("password")
+    @field_validator("user_password")
     def validate_password(cls, v):
         if len(v) < 8 or len(v) > 20:
             raise ValueError("비밀번호는 8~20자여야 합니다.")
@@ -32,7 +32,7 @@ class UserRegister(BaseModel):
 # 로그인
 class UserLogin(BaseModel):
     user_login_id: str
-    password: str
+    user_password: str
 
 # 폴더 생성
 class FolderCreate(BaseModel):

@@ -25,23 +25,25 @@ class User(Base):
     user_password = Column("USER_PASSWORD", String(200), nullable=False)
 
     # API 토큰
-    access_key = Column("ACCESS_KEY", String(100))
+    access_key = Column("ACCESS_KEY", String(512))
 
-    # 파일 저장 기본 경로
-    user_directory = Column("USER_DIRECTORY", String(200))
+    # 마지막 작업
+    last_work = Column("LAST_WORK", Date)
 
     # 계정 생성 시간
     created_at = Column("CREATED_AT", Date)
 
     # 스키마 관계
     folders = relationship("Folder", back_populates="user", cascade="all, delete-orphan")
-
+    files = relationship("File", back_populates="user", cascade="all, delete")
+    logs = relationship("Log", back_populates="user", cascade="all, delete")
 
 # Folder 테이블용 시퀀스
 folder_id_seq = Sequence('FOLDER_ID_SEQ', start = 1, increment = 1)
 
 class Folder(Base):
     __tablename__ = "FOLDERS"
+
     folder_id = Column("FOLDER_ID", Integer, folder_id_seq,
                        primary_key=True,
                        server_default=folder_id_seq.next_value())
@@ -53,3 +55,50 @@ class Folder(Base):
     last_work = Column("LAST_WORK", Date)
 
     user = relationship("User", back_populates="folders")
+    files = relationship("File", back_populates="folder", cascade="all, delete")
+    categories = relationship("FoldersCategory", back_populates="folder", cascade="all, delete")
+
+# FILES
+class File(Base):
+    __tablename__ = "FILES"
+
+    file_id = Column("FILE_ID", Integer, primary_key=True)
+    user_id = Column("USER_ID", Integer, ForeignKey("USERS.USER_ID"), nullable=False)
+    folder_id = Column("FOLDER_ID", Integer, ForeignKey("FOLDERS.FOLDER_ID"))
+    file_name = Column("FILE_NAME", String(200))
+    file_type = Column("FILE_TYPE", String(50))
+    file_path = Column("FILE_PATH", String(300))
+    is_transform = Column("IS_TRANSFORM", Integer, default=0)
+    transform_txt_path = Column("TRANSFORM_TXT_PATH", String(300))
+    is_classification = Column("IS_CLASSIFICATION", Integer, default=0)
+    category = Column("CATEGORY", String(200))
+    uploaded_at = Column("UPLOADED_AT", Date)
+
+    # 관계
+    user = relationship("User", back_populates="files")
+    folder = relationship("Folder", back_populates="files")
+
+
+#  LOGS -
+class Log(Base):
+    __tablename__ = "LOGS"
+
+    log_id = Column("LOG_ID", Integer, primary_key=True, index=True)
+    user_id = Column("USER_ID", Integer, ForeignKey("USERS.USER_ID"))
+    log_time = Column("LOG_TIME", Date)
+    log_content = Column("LOG_CONTENT", String(1000))
+
+    # 관계
+    user = relationship("User", back_populates="logs")
+
+
+
+# 카테고리
+class FoldersCategory(Base):
+    __tablename__ = "FOLDERS_CATEGORY"
+
+    folder_id = Column(Integer, ForeignKey("FOLDERS.FOLDER_ID"), primary_key=True)
+    category_name = Column(String(200), primary_key=True)
+
+    # 관계 (선택적)
+    folder = relationship("Folder", back_populates="categories", cascade="all, delete")

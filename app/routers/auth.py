@@ -16,7 +16,7 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다.")
 
-    hashed_pw = hash_password(user.password)
+    hashed_pw = hash_password(user.user_password)
     new_user = User(
         user_login_id=user.user_login_id,
         email=user.email,
@@ -48,7 +48,7 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     print(" 로그인 요청 body:", user.dict())  
     db_user = db.query(User).filter(User.user_login_id == user.user_login_id).first()
 
-    if not db_user or not verify_password(user.password, db_user.user_password):
+    if not db_user or not verify_password(user.user_password, db_user.user_password):
         print("로그인 실패: 유저 없음 or 비밀번호 불일치")
         raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
 
@@ -56,5 +56,5 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     db_user.access_key = token
     db.commit()
     print("로그인 성공:", db_user.user_login_id)
-    return {"message": "로그인 성공", "token": token, "user_id": db_user.user_id}
+    return {"message": "로그인 성공", "token": token, "user_id": db_user.user_id, "user_login_id": db_user.user_login_id}
 
