@@ -65,19 +65,17 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
 @router.get("/verify")
 def verify_token(request: Request, db: Session = Depends(get_db)):
     auth = request.headers.get("authorization")
+    userId = int(request.headers.get("user_id"))
     if not auth or not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="인증 토큰이 없습니다.")
 
     token = auth.split(" ")[1]
     try:
-        payload = decode_access_token(token)
-        user_id = int(payload.get("sub"))
-
-        db_user = db.query(User).filter(User.user_id == user_id).first()
+        db_user = db.query(User).filter(User.user_id == userId).first()
 
         # access_key 검증
         if not db_user or db_user.access_key != token:
-            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+            raise HTTPException(status_code=401, detail={"error" : "invalid tey"})
 
         now = datetime.now()
         last_work = db_user.last_work
@@ -85,15 +83,18 @@ def verify_token(request: Request, db: Session = Depends(get_db)):
             last_work = datetime.fromisoformat(last_work)
         
         if now - last_work > timedelta(minutes=30):
-            raise HTTPException(status_code=401, detail="세션이 만료되었습니다.")
+            raise HTTPException(status_code=401, detail={"error" : "timeout"})
 
         db_user.last_work = now
         db.commit()
-        return {"valid": True, "user_id": user_id}
+        return {"valid": True, "user_id": userId}
 
     except JWTError as e:
-        print(3, e)
-        raise HTTPException(status_code=401, detail="토큰이 만료되었거나 잘못되었습니다.")
+        raise HTTPException(status_code=401, detail={"error": "jwt_error"})
+
+    except HTTPException as e:
+        # 이미 HTTPException인 경우는 그대로 raise
+        raise e
+
     except Exception as e:
-        print(4, e)
-        raise HTTPException(status_code=401, detail="토큰 검증 중 오류가 발생했습니다.")
+        raise HTTPException(status_code=401, detail={"error": "verify_failed"})
