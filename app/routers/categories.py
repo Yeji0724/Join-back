@@ -133,3 +133,29 @@ def get_files_by_category(folder_id: int, category_name: str, db: Session = Depe
         "file_count": len(result),
         "files": result
     }
+
+# 카테고리 없는 파일 목록 조회
+@router.get("/{folder_id}/files")
+def get_files_without_category(folder_id: int, db: Session = Depends(get_db)):
+    """
+    특정 폴더 안에서 카테고리(category)가 없는 파일들만 조회
+    """
+    files = (
+        db.query(FileModel)
+        .filter(FileModel.folder_id == folder_id)
+        .filter((FileModel.category == None) | (FileModel.category == ""))  # NULL 또는 빈값
+        .order_by(FileModel.uploaded_at.desc().nullslast())
+        .all()
+    )
+
+    result = [
+        {
+            "file_id": f.file_id,
+            "file_name": f.file_name,
+            "file_type": f.file_type,
+            "uploaded_at": f.uploaded_at,
+        }
+        for f in files
+    ]
+
+    return {"files": result}

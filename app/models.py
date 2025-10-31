@@ -68,8 +68,8 @@ class File(Base):
     file_name = Column("FILE_NAME", String(200))
     file_type = Column("FILE_TYPE", String(50))
     file_path = Column("FILE_PATH", String(300))
-    is_transform = Column("IS_TRANSFORM", Integer, default=0)
-    transform_txt_path = Column("TRANSFORM_TXT_PATH", String(300))
+    is_transform = Column("IS_TRANSFORM", Integer, default=0)   # 0: 대기, 1: 추출중, 2: 추출완료
+    transform_txt_path = Column("TRANSFORM_TXT_PATH", String(300))      # 0: 대기, 1: 분류중, 2: 분류완료
     is_classification = Column("IS_CLASSIFICATION", Integer, default=0)
     category = Column("CATEGORY", String(200))
     uploaded_at = Column("UPLOADED_AT", Date)
