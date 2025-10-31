@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models import User, Folder
 from app.utils.security import hash_password, verify_password, create_access_token, decode_access_token
 from app.schemas import UserRegister, UserLogin
+from jose import JWTError
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -69,9 +70,15 @@ def verify_token(request: Request, db: Session = Depends(get_db)):
     try:
         payload = decode_access_token(token)
         user_id = int(payload.get("sub"))
+
         db_user = db.query(User).filter(User.user_id == user_id).first()
+
+        # access_key가 DB에 존재하지 않거나 토큰 불일치 시 거부
         if not db_user or db_user.access_key != token:
             raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
         return {"valid": True, "user_id": user_id}
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="토큰이 만료되었거나 잘못되었습니다.")
     except Exception:
-        raise HTTPException(status_code=401, detail="토큰이 유효하지 않습니다.")
+        raise HTTPException(status_code=401, detail="토큰 검증 중 오류가 발생했습니다.")

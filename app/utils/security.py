@@ -1,8 +1,9 @@
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
+import secrets
 
-SECRET_KEY = "change_this_secret"
+SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -24,14 +25,9 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=1
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_access_token(token: str):
-    """
-    JWT 토큰을 복호화하여 payload 반환
-    유효하지 않거나 만료된 경우 예외 발생
-    """
+    from jose import JWTError
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
-        raise Exception("토큰이 만료되었습니다.")
-    except jwt.InvalidTokenError:
-        raise Exception("유효하지 않은 토큰입니다.")
+    except JWTError as e:
+        raise JWTError("Invalid or expired token")
