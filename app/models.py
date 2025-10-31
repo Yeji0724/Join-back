@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Sequence, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Sequence, ForeignKey, DateTime
 from app.database import Base
 from sqlalchemy.orm import relationship
 
@@ -28,7 +28,7 @@ class User(Base):
     access_key = Column("ACCESS_KEY", String(512))
 
     # 마지막 작업
-    last_work = Column("LAST_WORK", Date)
+    last_work = Column("LAST_WORK", DateTime)
 
     # 계정 생성 시간
     created_at = Column("CREATED_AT", Date)

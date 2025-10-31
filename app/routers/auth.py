@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime, timedelta
 from app.database import get_db
 from app.models import User, Folder
 from app.utils.security import hash_password, verify_password, create_access_token, decode_access_token
@@ -22,7 +22,8 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
         user_login_id=user.user_login_id,
         email=user.email,
         user_password=hashed_pw,
-        created_at=date.today()
+        created_at=date.today(),
+        last_work=datetime.now()
     )
     db.add(new_user)
     db.flush()          # USER_ID 확보
@@ -55,6 +56,7 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": str(db_user.user_id)})
     db_user.access_key = token
+    db_user.last_work = datetime.now()
     db.commit()
     print("로그인 성공:", db_user.user_login_id)
     return {"message": "로그인 성공", "token": token, "user_id": db_user.user_id, "user_login_id": db_user.user_login_id}
@@ -73,12 +75,25 @@ def verify_token(request: Request, db: Session = Depends(get_db)):
 
         db_user = db.query(User).filter(User.user_id == user_id).first()
 
-        # access_key가 DB에 존재하지 않거나 토큰 불일치 시 거부
+        # access_key 검증
         if not db_user or db_user.access_key != token:
             raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+        now = datetime.now()
+        last_work = db_user.last_work
+        if isinstance(last_work, str):
+            last_work = datetime.fromisoformat(last_work)
+        
+        if now - last_work > timedelta(minutes=30):
+            raise HTTPException(status_code=401, detail="세션이 만료되었습니다.")
+
+        db_user.last_work = now
+        db.commit()
         return {"valid": True, "user_id": user_id}
 
-    except JWTError:
+    except JWTError as e:
+        print(3, e)
         raise HTTPException(status_code=401, detail="토큰이 만료되었거나 잘못되었습니다.")
-    except Exception:
+    except Exception as e:
+        print(4, e)
         raise HTTPException(status_code=401, detail="토큰 검증 중 오류가 발생했습니다.")
