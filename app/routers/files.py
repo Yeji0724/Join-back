@@ -127,6 +127,7 @@ async def save_file_to_db(
 # ------------------------------
 @router.get("/{folder_id}")
 def get_folder_files(folder_id: int, db: Session = Depends(get_db)):
+    update_folder_file_count(folder_id, db)     # 조회 전에 동기화
     files = (
         db.query(FileModel)
         .filter(FileModel.folder_id == folder_id)
@@ -152,6 +153,17 @@ def get_folder_files(folder_id: int, db: Session = Depends(get_db)):
     ]
 
     return {"files": result}
+
+
+# DB 기준으로 실제 파일 수 자동으로 세고 갱신
+def update_folder_file_count(folder_id: int, db: Session):
+    """폴더의 실제 파일 개수를 DB에서 다시 계산해 Folder.file_cnt 갱신"""
+    count = db.query(FileModel).filter(FileModel.folder_id == folder_id).count()
+    folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    if folder:
+        folder.file_cnt = count
+        folder.last_work = datetime.now()
+        db.commit()
 
 
 # ------------------------------

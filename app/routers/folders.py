@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.database import get_db
-from app.models import Folder
+from app.models import Folder, File
 from app.schemas import FolderCreate
 from pydantic import BaseModel
 
@@ -19,19 +19,20 @@ def get_user_folders(user_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    result = [
-        {
+    result = []
+    for f in folders:
+        # 파일 개수 실시간 계산 (Files 테이블에서 COUNT)
+        file_count = db.query(File).filter(File.folder_id == f.folder_id).count()
+
+        result.append({
             "folder_id": f.folder_id,
             "user_id": f.user_id,
             "folder_name": f.folder_name,
-            "file_cnt": f.file_cnt,
+            "file_cnt": file_count,   # DB 실시간 카운트 반영
             "last_work": f.last_work.isoformat() if f.last_work else None
-        }
-        for f in folders
-    ]
+        })
 
     return {"folders": result}
-
 
 # 폴더 생성
 @router.post("/create")
@@ -104,3 +105,17 @@ def get_folder_info(folder_id: int, db: Session = Depends(get_db)):
         "folder_name": folder.folder_name,
         "last_work": folder.last_work
     }
+
+# 폴더 활동 시간 갱신 (새로고침 시)
+@router.patch("/{folder_id}/refresh")
+def refresh_folder(folder_id: int, db: Session = Depends(get_db)):
+    folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+
+    if not folder:
+        raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
+
+    folder.last_work = datetime.utcnow()
+    db.commit()
+    db.refresh(folder)
+
+    return {"message": "폴더 활동 시간 갱신 완료", "last_work": folder.last_work.isoformat()}
