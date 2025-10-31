@@ -9,7 +9,7 @@ app = FastAPI()
 #  2. CORS 설정 (꼭 app 바로 밑에 위치해야 작동함)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 허용할 프론트 주소
+    allow_origins=["http://localhost:3000"],  # 허용할 프론트 주소
     allow_credentials=True,
     allow_methods=["*"],    # 모든 메서드 허용 (POST, GET 등)
     allow_headers=["*"],    # 모든 헤더 허용

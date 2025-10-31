@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from app.database import get_db
 from app.models import User, Folder
-from app.utils.security import hash_password, verify_password, create_access_token
-from app.schemas import UserRegister, UserLogin 
+from app.utils.security import hash_password, verify_password, create_access_token, decode_access_token
+from app.schemas import UserRegister, UserLogin
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -58,3 +58,20 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     print("로그인 성공:", db_user.user_login_id)
     return {"message": "로그인 성공", "token": token, "user_id": db_user.user_id, "user_login_id": db_user.user_login_id}
 
+# 토근 유효성 검증
+@router.get("/verify")
+def verify_token(request: Request, db: Session = Depends(get_db)):
+    auth = request.headers.get("authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="인증 토큰이 없습니다.")
+
+    token = auth.split(" ")[1]
+    try:
+        payload = decode_access_token(token)
+        user_id = int(payload.get("sub"))
+        db_user = db.query(User).filter(User.user_id == user_id).first()
+        if not db_user or db_user.access_key != token:
+            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+        return {"valid": True, "user_id": user_id}
+    except Exception:
+        raise HTTPException(status_code=401, detail="토큰이 유효하지 않습니다.")
