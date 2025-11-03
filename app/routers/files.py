@@ -251,11 +251,12 @@ async def unzip_zip(
     new_idx = get_new_idx(db)
     folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
     file = db.query(FileModel).filter(FileModel.file_id == zip_file_id).first()
-
     if not folder:
         raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
     if not file:
         raise HTTPException(status_code=400, detail="해당 zip 파일이 없습니다.")
+    if file.is_classification == 4:
+        return HTTPException(status_code=404, detail="이미 압축 해제된 zip 파일입니다.")
 
     zip_path = file.file_path
     if not os.path.exists(zip_path):
@@ -269,12 +270,17 @@ async def unzip_zip(
         for member in zip_ref.infolist():
             if member.is_dir():
                 continue
+            raw_name = member.filename.encode('cp437')  # zip 내부 기본 encoding
+            try:
+                filename = raw_name.decode('euc-kr')   # 알집에서 만든 한글
+            except UnicodeDecodeError:
+                filename = raw_name.decode('utf-8', errors='replace')
             file_bytes = zip_ref.read(member)
             new_file = await save_file_to_db(
                 file_id=new_idx,
                 user_id=file.user_id,
                 folder_id=folder_id,
-                file_name=os.path.basename(member.filename),
+                file_name=filename,
                 file_bytes=file_bytes,
                 folder_dir=folder_dir,
                 file_type=os.path.splitext(member.filename)[1].lstrip("."),
@@ -285,6 +291,7 @@ async def unzip_zip(
 
     folder.file_cnt = (folder.file_cnt or 0) + len(extracted_files)
     folder.last_work = datetime.now()
+    file.is_classification = 4
     db.commit()
 
     # 지원/미지원 파일 분리
