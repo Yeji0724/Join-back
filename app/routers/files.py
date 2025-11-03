@@ -238,6 +238,29 @@ async def upload_files(
         "unsupported_files": result_unsupported
     }
 
+# ------------------------------
+# 파일 삭제
+# ------------------------------
+@router.delete("/{file_id}")
+def delete_file(file_id: int, db: Session = Depends(get_db)):
+    file = db.query(FileModel).filter(FileModel.file_id == file_id).first()
+
+    if not file:
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+
+    # 실제 파일도 삭제 (파일 경로 존재 시)
+    if file.file_path and os.path.exists(file.file_path):
+        try:
+            os.remove(file.file_path)
+        except Exception as e:
+            print(f"[파일 삭제 실패] {e}")
+
+    # DB에서 삭제
+    db.delete(file)
+    db.commit()
+
+    return {"message": f"{file.file_name} 삭제 완료", "file_id": file_id}
+
 
 # ------------------------------
 # ZIP 파일 압축 해제
@@ -317,3 +340,39 @@ async def unzip_zip(
         "supported_files": result_supported,
         "unsupported_files": result_unsupported
     }
+
+# ------------------------------
+# 분류되지 않은(카테고리 없는) 파일만 조회
+# ------------------------------
+@router.get("/{folder_id}/unclassified")
+def get_unclassified_files(folder_id: int, db: Session = Depends(get_db)):
+    """
+    카테고리(category)가 NULL인 파일만 반환합니다.
+    즉, 분류되지 않은 파일 목록입니다.
+    """
+    files = (
+        db.query(FileModel)
+        .filter(FileModel.folder_id == folder_id)
+        .filter(FileModel.category == None)
+        .order_by(FileModel.uploaded_at.desc().nullslast())
+        .all()
+    )
+
+    result = [
+        {
+            "file_id": f.file_id,
+            "user_id": f.user_id,
+            "folder_id": f.folder_id,
+            "file_name": f.file_name,
+            "file_type": f.file_type,
+            "file_path": f.file_path,
+            "is_transform": f.is_transform,
+            "transform_txt_path": f.transform_txt_path,
+            "is_classification": f.is_classification,
+            "category": f.category,
+            "uploaded_at": f.uploaded_at
+        }
+        for f in files
+    ]
+
+    return {"files": result}

@@ -5,8 +5,11 @@ from app.database import get_db
 from app.models import Folder, File
 from app.schemas import FolderCreate
 from pydantic import BaseModel
+import httpx
 
 router = APIRouter(prefix="/folders", tags=["Folders"])
+
+CLASSIFICATOR_URL = "http://localhost:8002/new_file/"
 
 
 # 폴더 목록 조회 (최신순)
@@ -189,4 +192,27 @@ def get_folder_progress(folder_id: int, db: Session = Depends(get_db)):
         "transform_rate": transform_rate,
         "classification_rate": classification_rate
     }
+
+# 분류 요청 
+@router.post("/{folder_id}/classify")
+async def classify_folder(folder_id: int, db: Session = Depends(get_db)):
+    files = db.query(File).filter(File.folder_id == folder_id).all()
+    if not files:
+        raise HTTPException(status_code=404, detail="해당 폴더에 파일이 없습니다.")
+    
+    payload = {"files": [{"FILE_ID": f.file_id, "FILE_TYPE": f.file_type} for f in files]}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            res = await client.post(CLASSIFICATOR_URL, json=payload)
+            res.raise_for_status()
+            return {
+                "message": "분류 요청 완료",
+                "file_count": len(files),
+                "response": res.json()
+            }
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail="분류 서버에 연결할 수 없습니다.")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"분류 요청 중 오류: {e}")
 
