@@ -83,8 +83,14 @@ def delete_category(folder_id: int, cat_name: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없습니다.")
 
     db.delete(cat)
-
     folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    files = (db.query(FileModel)
+            .filter(FileModel.folder_id == folder.folder_id)
+            .filter(FileModel.category == cat.category_name)
+            .all()
+            )
+    for f in files:
+        f.category = None
     if folder:
         folder.last_work = datetime.utcnow()
 
