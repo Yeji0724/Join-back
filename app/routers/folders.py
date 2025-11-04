@@ -196,10 +196,19 @@ def get_folder_progress(folder_id: int, db: Session = Depends(get_db)):
 # 분류 요청 
 @router.post("/{folder_id}/classify")
 async def classify_folder(folder_id: int, db: Session = Depends(get_db)):
+    folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    folder.classification_after_change = 1
+
     files = db.query(File).filter(File.folder_id == folder_id).all()
     if not files:
         raise HTTPException(status_code=404, detail="해당 폴더에 파일이 없습니다.")
     
+    for f in files:
+        f.is_classification = 0
+        f.files = None
+    
+    db.commit()
+
     payload = {"files": [{"FILE_ID": f.file_id, "FILE_TYPE": f.file_type} for f in files]}
 
     async with httpx.AsyncClient(timeout=10.0) as client:

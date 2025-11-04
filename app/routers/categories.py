@@ -40,6 +40,7 @@ def create_category(folder_id: int, cat: CategoryCreate, db: Session = Depends(g
 
     folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
     if folder:
+        folder.classification_after_change = 0
         folder.last_work = datetime.utcnow()
 
     db.commit()
@@ -65,6 +66,7 @@ def rename_category(folder_id: int, old_name: str, body: CategoryRename, db: Ses
 
     folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
     if folder:
+        folder.classification_after_change = 0
         folder.last_work = datetime.utcnow()
 
     db.commit()
@@ -90,8 +92,10 @@ def delete_category(folder_id: int, cat_name: str, db: Session = Depends(get_db)
             .all()
             )
     for f in files:
+        f.is_classification = 0
         f.category = None
     if folder:
+        folder.classification_after_change = 0
         folder.last_work = datetime.utcnow()
 
     db.commit()
