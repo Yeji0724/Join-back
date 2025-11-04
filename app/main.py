@@ -23,6 +23,7 @@ app.include_router(auth.router)
 app.include_router(folders.router)
 app.include_router(categories.router)
 app.include_router(files.router)
+app.include_router(download.router)
 
 #  5. 테스트용 루트 엔드포인트
 @app.get("/")
