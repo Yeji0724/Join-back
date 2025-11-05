@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import File, Folder
@@ -93,14 +93,14 @@ def download_file(file_id: int, db: Session = Depends(get_db)):
     if not file or not file.file_path or not os.path.exists(file.file_path):
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
 
-    def iterfile():
-        with open(file.file_path, mode="rb") as f:
-            yield from f
+    # 파일명 한글 깨짐 방지
+    encoded_name = urllib.parse.quote(file.file_name.encode("utf-8"))
 
-    return StreamingResponse(
-    iterfile(),
-    media_type="application/octet-stream",
-    headers={
-        "Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(file.file_name)}"
-    }
+    return FileResponse(
+        path=file.file_path,
+        filename=file.file_name,  # 실제 다운로드 시 표시될 이름
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}"
+        }
 )

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.database import get_db
-from app.models import Folder, File
+from app.models import Folder, File, FoldersCategory
 from app.schemas import FolderCreate
 from pydantic import BaseModel
 import httpx
@@ -40,12 +40,17 @@ def get_user_folders(user_id: int, db: Session = Depends(get_db)):
 # 폴더 생성
 @router.post("/create")
 def create_folder(folder: FolderCreate, db: Session = Depends(get_db)):
-    if not folder.folder_name.strip():
+    name = folder.folder_name.strip()
+
+    if not name:
         raise HTTPException(status_code=400, detail="폴더 이름을 입력해주세요.")
+
+    if len(name) > 20:
+        raise HTTPException(status_code=400, detail="폴더 이름은 20자 이하로 입력해주세요.")
 
     new_folder = Folder(
         user_id=folder.user_id,
-        folder_name=folder.folder_name.strip(),
+        folder_name=name,
         file_cnt=0,
         classification_after_change=0,
         last_work=datetime.utcnow()
@@ -55,8 +60,11 @@ def create_folder(folder: FolderCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_folder)
 
-    return {"message": "폴더 생성 완료", "folder_id": new_folder.folder_id, "folder_name": new_folder.folder_name}
-
+    return {
+        "message": "폴더 생성 완료",
+        "folder_id": new_folder.folder_id,
+        "folder_name": new_folder.folder_name
+    }
 
 # 폴더 이름 수정
 class FolderRename(BaseModel):
@@ -70,17 +78,20 @@ def rename_folder(folder_id: int, renameData: FolderRename, db: Session = Depend
     if not folder:
         raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
 
-    if not renameData.new_name.strip():
+    new_name = renameData.new_name.strip()
+    if not new_name:
         raise HTTPException(status_code=400, detail="폴더 이름은 공백일 수 없습니다.")
 
-    folder.folder_name = renameData.new_name.strip()
+    if len(new_name) > 20:
+        raise HTTPException(status_code=400, detail="폴더 이름은 20자 이하로 입력해주세요.")
+
+    folder.folder_name = new_name
     folder.last_work = datetime.utcnow()
 
     db.commit()
-    db.refresh(folder)  # 인자 추가
+    db.refresh(folder)
 
     return {"message": "폴더 이름 수정 완료", "folder_name": folder.folder_name}
-
 
 # 폴더 삭제
 @router.delete("/{folder_id}")
@@ -89,7 +100,21 @@ def delete_folder(folder_id: int, db: Session = Depends(get_db)):
 
     if not folder:
         raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
+    
+    # 카테고리 삭제
+    categories = db.query(FoldersCategory).filter(FoldersCategory.folder_id == folder_id).all()
 
+    for cat in categories:
+        # 각 카테고리 안의 파일 삭제
+        db.query(File).filter(File.folder_id == cat.folder_id).delete()
+
+    # 카테고리 자체 삭제
+    db.query(FoldersCategory).filter(FoldersCategory.folder_id == folder_id).delete()
+
+    # 폴더 안의 카테고리 없는 파일 삭제
+    db.query(File).filter(File.folder_id == folder_id).delete()
+
+    # 폴더 삭제
     db.delete(folder)
     db.commit()
 
