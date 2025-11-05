@@ -92,7 +92,6 @@ def delete_category(folder_id: int, cat_name: str, db: Session = Depends(get_db)
             .all()
             )
     for f in files:
-        f.is_classification = 0
         f.category = None
     if folder:
         folder.classification_after_change = 0
