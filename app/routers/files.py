@@ -322,7 +322,7 @@ async def unzip_zip(
 
     folder.file_cnt = (folder.file_cnt or 0) + len(extracted_files)
     folder.last_work = datetime.now()
-    zip_file.is_transform = 4
+    zip_file.is_classification = 4
     db.commit()
 
     # 지원/미지원 파일 분리
