@@ -8,7 +8,8 @@ from pydantic import BaseModel
 import httpx
 
 router = APIRouter(prefix="/folders", tags=["Folders"])
-
+SUPPORTED_EXTENSIONS = {"pdf", "hwp", "docx", "pptx", "xlsx",
+                        "jpg", "jpeg", "png", "txt"}
 CLASSIFICATOR_URL = "http://localhost:8002/new_file/"
 
 # 폴더 생성
@@ -249,8 +250,9 @@ async def classify_folder(folder_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="해당 폴더에 파일이 없습니다.")
     
     for f in files:
-        f.is_classification = 0
-        f.files = None
+        if f.file_type in SUPPORTED_EXTENSIONS:
+            f.is_classification = 0
+            f.category = None
     
     db.commit()
 
