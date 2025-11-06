@@ -11,32 +11,6 @@ router = APIRouter(prefix="/folders", tags=["Folders"])
 
 CLASSIFICATOR_URL = "http://localhost:8002/new_file/"
 
-
-# 폴더 목록 조회 (최신순)
-@router.get("/{user_id}")
-def get_user_folders(user_id: int, db: Session = Depends(get_db)):
-    folders = (
-        db.query(Folder)
-        .filter(Folder.user_id == user_id)
-        .order_by(Folder.last_work.desc().nullslast())
-        .all()
-    )
-
-    result = []
-    for f in folders:
-        # 파일 개수 실시간 계산 (Files 테이블에서 COUNT)
-        file_count = db.query(File).filter(File.folder_id == f.folder_id).count()
-
-        result.append({
-            "folder_id": f.folder_id,
-            "user_id": f.user_id,
-            "folder_name": f.folder_name,
-            "file_cnt": file_count,   # DB 실시간 카운트 반영
-            "last_work": f.last_work.isoformat() if f.last_work else None
-        })
-
-    return {"folders": result}
-
 # 폴더 생성
 @router.post("/create")
 def create_folder(folder: FolderCreate, db: Session = Depends(get_db)):
@@ -47,6 +21,15 @@ def create_folder(folder: FolderCreate, db: Session = Depends(get_db)):
 
     if len(name) > 20:
         raise HTTPException(status_code=400, detail="폴더 이름은 20자 이하로 입력해주세요.")
+    
+    # 같은 유저의 동일한 폴더명 존재 여부 확인
+    existing = db.query(Folder).filter(
+        Folder.user_id == folder.user_id,
+        Folder.folder_name == name
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="이미 존재하는 폴더 이름입니다.")
 
     new_folder = Folder(
         user_id=folder.user_id,
@@ -65,6 +48,31 @@ def create_folder(folder: FolderCreate, db: Session = Depends(get_db)):
         "folder_id": new_folder.folder_id,
         "folder_name": new_folder.folder_name
     }
+
+# 폴더 목록 조회 (최신순)
+@router.get("/{user_id}")
+def get_user_folders(user_id: int, db: Session = Depends(get_db)):
+    folders = (
+        db.query(Folder)
+        .filter(Folder.user_id == user_id)
+        .order_by(Folder.last_work.desc().nullslast())
+        .all()
+    )
+
+    result = []
+    for f in folders:
+        # 파일 개수 실시간 계산 (Files 테이블에서 COUNT)
+        file_count = db.query(File).filter(File.folder_id == f.folder_id).count()
+
+        result.append({
+            "folder_id": f.folder_id,
+            "user_id": f.user_id,   
+            "folder_name": f.folder_name,
+            "file_cnt": file_count,   # DB 실시간 카운트 반영
+            "last_work": f.last_work.isoformat() if f.last_work else None
+        })
+
+    return {"folders": result}
 
 # 폴더 이름 수정
 class FolderRename(BaseModel):
@@ -85,6 +93,17 @@ def rename_folder(folder_id: int, renameData: FolderRename, db: Session = Depend
     if len(new_name) > 20:
         raise HTTPException(status_code=400, detail="폴더 이름은 20자 이하로 입력해주세요.")
 
+    # 동일 유저 내에서 중복된 이름 있는지 검사 추가
+    existing = db.query(Folder).filter(
+        Folder.user_id == folder.user_id,
+        Folder.folder_name == new_name,
+        Folder.folder_id != folder_id   # 자기 자신 제외
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="이미 존재하는 폴더 이름입니다.")
+
+    # 통과 시 이름 수정
     folder.folder_name = new_name
     folder.last_work = datetime.utcnow()
 
@@ -92,6 +111,7 @@ def rename_folder(folder_id: int, renameData: FolderRename, db: Session = Depend
     db.refresh(folder)
 
     return {"message": "폴더 이름 수정 완료", "folder_name": folder.folder_name}
+
 
 # 폴더 삭제
 @router.delete("/{folder_id}")

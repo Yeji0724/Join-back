@@ -98,3 +98,19 @@ def verify_token(request: Request, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=401, detail={"error": "verify_failed"})
+    
+# 아이디 중복 확인
+@router.get("/check-id/{user_login_id}")
+def check_user_id(user_login_id: str, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.user_login_id == user_login_id).first()
+    if existing_user:
+        return {"available": False, "message": "이미 존재하는 아이디입니다."}
+    return {"available": True, "message": "사용 가능한 아이디입니다."}
+
+# 이메일 중복 확인
+@router.get("/check-email/{email}")
+def check_email(email: str, db: Session = Depends(get_db)):
+    existing_email = db.query(User).filter(User.email == email).first()
+    if existing_email:
+        return {"available": False, "message": "이미 등록된 이메일입니다."}
+    return {"available": True, "message": "사용 가능한 이메일입니다."}
