@@ -273,15 +273,15 @@ async def unzip_zip(
 ):
     new_idx = get_new_idx(db)
     folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
-    file = db.query(FileModel).filter(FileModel.file_id == zip_file_id).first()
+    zip_file = db.query(FileModel).filter(FileModel.file_id == zip_file_id).first()
     if not folder:
         raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
-    if not file:
+    if not zip_file:
         raise HTTPException(status_code=400, detail="해당 zip 파일이 없습니다.")
-    if file.is_classification == 4:
+    if zip_file.is_classification == 4:
         return HTTPException(status_code=404, detail="이미 압축 해제된 zip 파일입니다.")
 
-    zip_path = file.file_path
+    zip_path = zip_file.file_path
     if not os.path.exists(zip_path):
         raise HTTPException(status_code=400, detail="zip 파일 경로가 존재하지 않습니다.")
 
@@ -293,22 +293,23 @@ async def unzip_zip(
         for member in zip_ref.infolist():
             if member.is_dir():
                 continue
-            filename = member.filename
             try:
+                # zip 내부 기본 인코딩(cp437)으로 변환 시도
                 raw_name = member.filename.encode('cp437')
-                filename = raw_name.decode('euc-kr')
-            except UnicodeEncodeError:
-                filename = member.filename
-            except UnicodeDecodeError:
                 try:
-                    filename = raw_name.decode('utf-8', errors='replace')
-                except Exception:
-                    filename = member.filename
+                    decoded_name = raw_name.decode('euc-kr')   # 알집 등 한글 ZIP
+                except UnicodeDecodeError:
+                    decoded_name = raw_name.decode('utf-8', errors='replace')
+            except Exception:
+                # cp437 인코딩 실패 시 그냥 utf-8로 시도
+                decoded_name = member.filename
+            
+            filename = os.path.basename(decoded_name)
                     
             file_bytes = zip_ref.read(member)
             new_file = await save_file_to_db(
                 file_id=new_idx,
-                user_id=file.user_id,
+                user_id=zip_file.user_id,
                 folder_id=folder_id,
                 file_name=filename,
                 file_bytes=file_bytes,
@@ -321,7 +322,7 @@ async def unzip_zip(
 
     folder.file_cnt = (folder.file_cnt or 0) + len(extracted_files)
     folder.last_work = datetime.now()
-    file.is_classification = 4
+    zip_file.is_transform = 4
     db.commit()
 
     # 지원/미지원 파일 분리
