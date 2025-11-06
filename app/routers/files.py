@@ -293,11 +293,18 @@ async def unzip_zip(
         for member in zip_ref.infolist():
             if member.is_dir():
                 continue
-            raw_name = member.filename.encode('cp437')  # zip 내부 기본 encoding
+            filename = member.filename
             try:
-                filename = raw_name.decode('euc-kr')   # 알집에서 만든 한글
+                raw_name = member.filename.encode('cp437')
+                filename = raw_name.decode('euc-kr')
+            except UnicodeEncodeError:
+                filename = member.filename
             except UnicodeDecodeError:
-                filename = raw_name.decode('utf-8', errors='replace')
+                try:
+                    filename = raw_name.decode('utf-8', errors='replace')
+                except Exception:
+                    filename = member.filename
+                    
             file_bytes = zip_ref.read(member)
             new_file = await save_file_to_db(
                 file_id=new_idx,
