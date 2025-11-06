@@ -243,20 +243,39 @@ def get_folder_progress(folder_id: int, db: Session = Depends(get_db)):
 @router.post("/{folder_id}/classify")
 async def classify_folder(folder_id: int, db: Session = Depends(get_db)):
     folder = db.query(Folder).filter(Folder.folder_id == folder_id).first()
+    if not folder:
+
+        raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
     folder.classification_after_change = 1
 
+    # 해당 폴더 내 모든 파일 조회
     files = db.query(File).filter(File.folder_id == folder_id).all()
     if not files:
         raise HTTPException(status_code=404, detail="해당 폴더에 파일이 없습니다.")
     
+    # 변환 완료된 문서만, 이미 압축 해제된 ZIP은 제외
     for f in files:
-        if f.file_type in SUPPORTED_EXTENSIONS:
+        # 해제된 ZIP 파일은 건너뜀
+        if f.is_classification == 4:
+            continue
+
+        # 변환 완료된 파일만 재분류 대상
+        if f.is_transform == 2 and f.file_type in SUPPORTED_EXTENSIONS:
             f.is_classification = 0
-            f.category = None
+            f.category = None  # 기존 카테고리 초기화
     
     db.commit()
 
-    payload = {"files": [{"FILE_ID": f.file_id, "FILE_TYPE": f.file_type} for f in files]}
+    payload_files = [
+        {"FILE_ID": f.file_id, "FILE_TYPE": f.file_type}
+        for f in files
+        if f.is_classification != 4 and f.is_transform == 2
+    ]
+
+    if not payload_files:
+        raise HTTPException(status_code=400, detail="분류할 수 있는 파일이 없습니다.")
+
+    payload = {"files": payload_files}
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
@@ -264,7 +283,7 @@ async def classify_folder(folder_id: int, db: Session = Depends(get_db)):
             res.raise_for_status()
             return {
                 "message": "분류 요청 완료",
-                "file_count": len(files),
+                "file_count": len(payload_files),
                 "response": res.json()
             }
         except httpx.ConnectError:
